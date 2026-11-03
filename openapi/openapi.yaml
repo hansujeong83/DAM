@@ -1,0 +1,158 @@
+openapi: 3.1.0
+info:
+  title: DAM API
+  version: 0.1.0
+  description: Initial contract draft for the DAM farm, harvest and catalog domains.
+servers:
+  - url: https://api.example.com
+    description: Placeholder; replace when the API host is configured.
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check service health
+      responses:
+        "200":
+          description: Service is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                  service:
+                    type: string
+                    const: dam-api
+  /v1/farms:
+    get:
+      operationId: listFarms
+      summary: List farms visible to the authenticated tenant
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Farm list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Farm"
+    post:
+      operationId: createFarm
+      summary: Create a farm
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FarmCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Farm"
+  /v1/harvest-batches:
+    get:
+      operationId: listHarvestBatches
+      summary: List harvest batches
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: farmId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Harvest batch list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HarvestBatch"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Farm:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        farmCode:
+          type: [string, "null"]
+        addressText:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [active, inactive, archived]
+    FarmCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        farmCode:
+          type: [string, "null"]
+        addressText:
+          type: [string, "null"]
+    HarvestBatch:
+      type: object
+      required: [id, farmId, batchCode, cropName, harvestedOn, quantity, quantityUnit]
+      properties:
+        id:
+          type: string
+          format: uuid
+        farmId:
+          type: string
+          format: uuid
+        batchCode:
+          type: string
+        cropName:
+          type: string
+        cultivar:
+          type: [string, "null"]
+        harvestedOn:
+          type: string
+          format: date
+        quantity:
+          type: number
+          minimum: 0
+        quantityUnit:
+          type: string
