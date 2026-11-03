@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
   title: DAM API
-  version: 0.1.0
-  description: Initial contract draft for the DAM farm, harvest and catalog domains.
+  version: 0.2.0
+  description: Contract draft for tenant-scoped farm operations, harvest lots and traceability.
 servers:
   - url: https://api.example.com
     description: Placeholder; replace when the API host is configured.
+security:
+  - bearerAuth: []
 paths:
   /health:
     get:
       operationId: getHealth
+      security: []
       summary: Check service health
       responses:
         "200":
@@ -20,36 +23,22 @@ paths:
                 type: object
                 required: [status, service]
                 properties:
-                  status:
-                    type: string
-                    const: ok
-                  service:
-                    type: string
-                    const: dam-api
+                  status: { type: string, const: ok }
+                  service: { type: string, const: dam-api }
   /v1/farms:
     get:
       operationId: listFarms
       summary: List farms visible to the authenticated tenant
-      security:
-        - bearerAuth: []
       responses:
         "200":
           description: Farm list
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Farm"
+                $ref: "#/components/schemas/FarmList"
     post:
       operationId: createFarm
       summary: Create a farm
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -63,96 +52,231 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Farm"
-  /v1/harvest-batches:
+  /v1/farms/{farmId}/plots:
     get:
-      operationId: listHarvestBatches
-      summary: List harvest batches
-      security:
-        - bearerAuth: []
+      operationId: listPlots
+      summary: List plots belonging to a farm
+      parameters:
+        - $ref: "#/components/parameters/FarmId"
+      responses:
+        "200":
+          description: Plot list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlotList"
+    post:
+      operationId: createPlot
+      summary: Create a plot in a farm
+      parameters:
+        - $ref: "#/components/parameters/FarmId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlotCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plot"
+  /v1/cultivation-cycles:
+    get:
+      operationId: listCultivationCycles
+      summary: List cultivation cycles
       parameters:
         - in: query
           name: farmId
-          schema:
-            type: string
-            format: uuid
+          schema: { type: string, format: uuid }
+        - in: query
+          name: plotId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          schema: { type: string, enum: [planned, active, harvesting, completed, cancelled] }
+      responses:
+        "200":
+          description: Cultivation cycle list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CultivationCycleList"
+    post:
+      operationId: createCultivationCycle
+      summary: Start or plan a cultivation cycle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CultivationCycleCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CultivationCycle"
+  /v1/harvest-batches:
+    get:
+      operationId: listHarvestBatches
+      summary: List harvest lots
+      parameters:
+        - in: query
+          name: farmId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: cycleId
+          schema: { type: string, format: uuid }
         - in: query
           name: from
-          schema:
-            type: string
-            format: date
+          schema: { type: string, format: date }
         - in: query
           name: to
-          schema:
-            type: string
-            format: date
+          schema: { type: string, format: date }
       responses:
         "200":
           description: Harvest batch list
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/HarvestBatch"
+                $ref: "#/components/schemas/HarvestBatchList"
+  /v1/harvest-batches/{batchId}/lineage:
+    get:
+      operationId: getHarvestBatchLineage
+      summary: Retrieve source and derived lots for a batch
+      parameters:
+        - in: path
+          name: batchId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Batch lineage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineageList"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    FarmId:
+      in: path
+      name: farmId
+      required: true
+      schema: { type: string, format: uuid }
   schemas:
     Farm:
       type: object
       required: [id, name, status]
       properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        farmCode:
-          type: [string, "null"]
-        addressText:
-          type: [string, "null"]
-        status:
-          type: string
-          enum: [active, inactive, archived]
+        id: { type: string, format: uuid }
+        name: { type: string }
+        farmCode: { type: [string, "null"] }
+        addressText: { type: [string, "null"] }
+        status: { type: string, enum: [active, inactive, archived] }
     FarmCreate:
       type: object
       required: [name]
       properties:
-        name:
-          type: string
-          minLength: 1
-        farmCode:
-          type: [string, "null"]
-        addressText:
-          type: [string, "null"]
+        name: { type: string, minLength: 1 }
+        farmCode: { type: [string, "null"] }
+        addressText: { type: [string, "null"] }
+    FarmList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Farm" } }
+    Plot:
+      type: object
+      required: [id, farmId, plotCode, name, status]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        plotCode: { type: string }
+        name: { type: string }
+        areaM2: { type: [number, "null"], exclusiveMinimum: 0 }
+        soilType: { type: [string, "null"] }
+        status: { type: string, enum: [active, inactive, archived] }
+    PlotCreate:
+      type: object
+      required: [plotCode, name]
+      properties:
+        plotCode: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        areaM2: { type: [number, "null"], exclusiveMinimum: 0 }
+        soilType: { type: [string, "null"] }
+    PlotList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Plot" } }
+    CultivationCycle:
+      type: object
+      required: [id, farmId, plotId, cropId, cycleCode, startedOn, status]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        cropId: { type: string, format: uuid }
+        cycleCode: { type: string }
+        startedOn: { type: string, format: date }
+        expectedHarvestOn: { type: [string, "null"], format: date }
+        status: { type: string, enum: [planned, active, harvesting, completed, cancelled] }
+    CultivationCycleCreate:
+      type: object
+      required: [farmId, plotId, cropId, cycleCode, startedOn]
+      properties:
+        farmId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        cropId: { type: string, format: uuid }
+        cycleCode: { type: string, minLength: 1 }
+        startedOn: { type: string, format: date }
+        expectedHarvestOn: { type: [string, "null"], format: date }
+    CultivationCycleList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/CultivationCycle" } }
     HarvestBatch:
       type: object
       required: [id, farmId, batchCode, cropName, harvestedOn, quantity, quantityUnit]
       properties:
-        id:
-          type: string
-          format: uuid
-        farmId:
-          type: string
-          format: uuid
-        batchCode:
-          type: string
-        cropName:
-          type: string
-        cultivar:
-          type: [string, "null"]
-        harvestedOn:
-          type: string
-          format: date
-        quantity:
-          type: number
-          minimum: 0
-        quantityUnit:
-          type: string
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        batchCode: { type: string }
+        cropName: { type: string }
+        cultivar: { type: [string, "null"] }
+        harvestedOn: { type: string, format: date }
+        quantity: { type: number, minimum: 0 }
+        quantityUnit: { type: string }
+        plotId: { type: [string, "null"], format: uuid }
+        cultivationCycleId: { type: [string, "null"], format: uuid }
+        cropId: { type: [string, "null"], format: uuid }
+    HarvestBatchList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/HarvestBatch" } }
+    Lineage:
+      type: object
+      required: [parentBatchId, childBatchId, relationshipType]
+      properties:
+        parentBatchId: { type: string, format: uuid }
+        childBatchId: { type: string, format: uuid }
+        relationshipType: { type: string, enum: [processed_into, split_into, merged_into, repacked_into] }
+        inputQuantity: { type: [number, "null"], minimum: 0 }
+        outputQuantity: { type: [number, "null"], minimum: 0 }
+        quantityUnit: { type: string }
+    LineageList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Lineage" } }
