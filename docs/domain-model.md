@@ -1,49 +1,49 @@
-# DAM 도메인 모델 초안
+# DAM 도메인 모델
 
-이 문서는 현재까지 논의한 DAM의 업무 개념을 구현 가능한 단위로 정리한 초안이다. 운영 데이터와 현장 업무 인터뷰를 통해 용어·관계·필수값을 확정해야 한다.
+## 데이터 흐름
+
+`Tenant → Farm → Plot → Cultivation Cycle → Harvest Batch (LOT) → Processing Lineage → Product → Order`
+
+농장 운영 데이터와 판매 데이터를 LOT로 연결한다. 데이터가 없는 항목은 추정하지 않고 미기록 상태로 둔다.
 
 ## 핵심 도메인
 
-| 도메인 | 주요 개념 | 책임 |
+| 영역 | 엔티티 | 책임 |
 |---|---|---|
-| Tenant & Identity | Tenant, Profile, Membership | 조직·사용자·접근 경계 |
-| Farm | Farm, Farm Member | 농장과 운영 주체 |
-| Production | Sensor, Production Record | 센서·재배·생산 데이터 |
-| Harvest | Harvest Batch | 수확 단위 및 LOT |
-| Traceability | Trace Event | 생산·가공·이동 이력 |
-| Catalog | Product, Brand | 상품과 브랜드 정보 |
-| Commerce | Customer, Order, Order Item | 주문·고객·거래 |
-| Knowledge | Knowledge Document | 문서·지식 원천 |
-| AI | AI Job | 비동기 AI 실행과 결과 추적 |
-| Governance | Audit Log | 주요 변경 이력 |
+| 조직 | Tenant, Profile, Membership | 조직 경계와 사용자 권한 |
+| 농장 | Farm, Farm Member, Plot | 농장·구획·운영 주체 |
+| 작물 | Crop Catalog, Cultivation Cycle | 작물·품종·재배 주기 |
+| 재배 | Cultivation Task, Input Application | 작업 및 투입재 이력 |
+| 생산 | Sensor, Production Record | 센서·환경·생산 데이터 |
+| 수확 | Harvest Batch, Quality Measurement | 수확 LOT와 품질 측정 |
+| 이력 | Trace Event, Batch Lineage | 작업 이벤트 및 가공·분할·혼합 계보 |
+| 상품 | Brand, Product, Product Harvest Batch | 브랜드·상품과 원료 LOT 연결 |
+| 거래 | Customer, Order, Order Item | 고객·주문·판매 |
+| 지식·AI | Knowledge Document, AI Job | 문서 근거와 비동기 AI 작업 |
+| 거버넌스 | Audit Log | 주요 변경 추적 |
 
-## 관계 요약
+## 중요한 관계 및 무결성
 
-- Tenant 1:N Farm / Profile / Brand / Product / Customer / Order
-- Farm 1:N Sensor / Harvest Batch
-- Harvest Batch 1:N Trace Event
-- Product N:M Harvest Batch (실제 판매 단위와 수확 배치 연결은 추후 Product Batch/LOT 연결 테이블로 확장)
-- Customer 1:N Order
-- Order 1:N Order Item
-- Tenant 1:N Knowledge Document / AI Job / Audit Log
+- Tenant 1:N Farm, Plot, Crop Catalog, Product, Customer
+- Farm 1:N Plot; Plot 1:N Cultivation Cycle
+- Crop Catalog 1:N Cultivation Cycle
+- Cultivation Cycle 1:N Task / Input Application / Harvest Batch
+- Harvest Batch 1:N Quality Measurement / Trace Event
+- Harvest Batch N:M Harvest Batch through Harvest Batch Lineage
+- Product N:M Harvest Batch through Product Harvest Batches
+- 새 하위 테이블은 `(tenant_id, id)` 복합 외래키로 서로 다른 tenant의 데이터를 연결하지 못하도록 제한한다.
+- 수확량·품질·투입량은 측정값과 단위를 함께 저장한다. 출처·측정방법·측정자·증빙은 가능한 경우 기록한다.
 
-## 설계 결정 및 미확정 사항
+## 마이그레이션 순서
 
-1. 현재 스키마는 초기 코어 모델이며 전체 목표 50~70개 테이블의 완성본이 아니다.
-2. 가공·소분·혼합 시 배치 계보(lineage)를 표현하는 parent/child batch 모델을 추가 설계해야 한다.
-3. 상품과 수확 배치의 다대다 연결을 위한 product_harvest_batches 또는 별도 lot 테이블이 필요하다.
-4. 농장·필지·작물·재배작업·투입재·수확량·품질 측정의 세부 모델을 확장해야 한다.
-5. tenant별 사용자 권한은 역할(Role)과 정책(Policy)을 구분해 설계해야 한다.
-6. Supabase Auth의 auth.users와 profiles 연결, RLS 정책, 서비스 역할 권한은 실제 프로젝트에서 검증해야 한다.
-7. 벡터 임베딩은 사용 중인 PostgreSQL pgvector 버전과 차원에 맞춰 별도 migration으로 추가한다.
-8. ESG·탄소·DPP 산출은 데이터 출처와 계산 방법론이 확정된 이후 별도 도메인으로 추가한다.
+1. `001_initial_schema.sql`: 코어 테이블
+2. `002_tenant_rls.sql`: 코어 테이블 tenant 격리 정책
+3. `003_agriculture_domain.sql`: 필지·작물·재배·투입재·품질·LOT 계보 및 신규 테이블 RLS
 
-## 명명 규칙
+## 운영 전 검증 필수
 
-- 테이블·컬럼: snake_case, 소문자
-- 기본키: uuid, 컬럼명 id
-- 외래키: 참조 테이블 단수형_id
-- 시간: timestamptz, UTC 저장
-- 상태: 검증 가능한 제한값 또는 참조 테이블 사용
-- 금액: 통화 코드와 함께 numeric 사용
-- 원천 데이터: 출처·수집 시각·수정 주체를 추적
+- staging에서 migration 전체를 순서대로 적용
+- 두 개 이상의 tenant 계정으로 SELECT/INSERT/UPDATE/DELETE 격리 테스트
+- 같은 tenant 내에서도 역할별 최소권한 테스트
+- 실제 농가 업무 용어, 단위, 필수값과 작물별 품질 항목 검증
+- 현재 migration은 저장소에 커밋된 설계·구현 초안이며 운영 DB 적용 완료를 의미하지 않는다.
