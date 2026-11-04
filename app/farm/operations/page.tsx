@@ -78,7 +78,7 @@ export default function FarmOperationsPage() {
 
   return <main style={{ minHeight: "100vh", background: "#f4f3ed", padding: "34px 20px", color: "#20372e" }}>
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <header style={{ marginBottom: 28 }}><p style={{ color: "#b29660", fontSize: 10, fontWeight: 800, letterSpacing: 3 }}>DAM · CULTIVATION</p><h1 style={{ fontSize: 30, margin: 0 }}>필지 · 재배 관리</h1><p style={{ color: "#78857b", fontSize: 13 }}>농장 아래 필지를 나누고 작물별 재배 주기를 기록합니다.</p><a href="/farm" style={{ color: "#315b49", fontSize: 13 }}>← 농장·작물 관리</a></header>
+      <header style={{ marginBottom: 28 }}><p style={{ color: "#b29660", fontSize: 10, fontWeight: 800, letterSpacing: 3 }}>DAM · CULTIVATION</p><h1 style={{ fontSize: 30, margin: 0 }}>필지 · 재배 관리</h1><p style={{ color: "#78857b", fontSize: 13 }}>농장 아래 필지를 나누고 작물별 재배 주기를 기록합니다.</p><nav style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:12}}><a href="/farm" style={{ color: "#315b49", fontSize: 13 }}>← 농장·작물 관리</a><a href="/farm/journal" style={{ color: "#315b49", fontSize: 13 }}>영농 작업일지 →</a></nav></header>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,320px),1fr))", gap: 16, marginBottom: 20 }}>
         <section style={panel}><h2 style={{ fontSize: 18, marginTop: 0 }}>필지 등록</h2><form onSubmit={savePlot}>
           <label style={label}>소속 농장 *</label><select style={field} value={farmId} onChange={e => setFarmId(e.target.value)} required><option value="">농장 선택</option>{farms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
