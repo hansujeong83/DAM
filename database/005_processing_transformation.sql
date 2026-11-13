@@ -124,6 +124,9 @@ begin
     p_input_quantity, p_output_quantity, p_input_unit, p_notes
   );
 
+  update public.harvest_batches set status = 'processing', updated_at = now()
+  where id = v_source.id and tenant_id = v_tenant_id;
+
   insert into public.processing_records (
     tenant_id, source_batch_id, output_batch_id, process_code, process_name,
     processed_on, input_quantity, input_unit, output_quantity, output_unit,
