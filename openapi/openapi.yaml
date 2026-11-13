@@ -160,6 +160,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HarvestBatch"
+  /v1/processing-records:
+    post:
+      operationId: createProcessingBatch
+      summary: Transform a source harvest lot into a processed output lot
+      description: Creates the output harvest batch, processing record, and processed_into lineage atomically. Input and output units must match for yield calculation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessingBatchCreate"
+      responses:
+        "201":
+          description: Processing transformation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingBatchResult"
+  /v1/processing-records/{recordId}:
+    get:
+      operationId: getProcessingRecord
+      summary: Get a processing transformation and its lot links
+      parameters:
+        - in: path
+          name: recordId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Processing transformation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingRecord"
   /v1/harvest-batches/{batchId}/quality-measurements:
     get:
       operationId: listHarvestQualityMeasurements
@@ -329,6 +363,45 @@ components:
         grade: { type: [string, "null"] }
         brix: { type: [number, "null"], minimum: 0, maximum: 100 }
         notes: { type: [string, "null"] }
+    ProcessingBatchCreate:
+      type: object
+      required: [sourceBatchId, processCode, processName, processedOn, inputQuantity, inputUnit, outputCropName, outputQuantity, outputUnit]
+      properties:
+        sourceBatchId: { type: string, format: uuid }
+        processCode: { type: string }
+        processName: { type: string }
+        processedOn: { type: string, format: date }
+        inputQuantity: { type: number, exclusiveMinimum: 0 }
+        inputUnit: { type: string }
+        outputCropName: { type: string }
+        outputCultivar: { type: [string, "null"] }
+        outputQuantity: { type: number, exclusiveMinimum: 0 }
+        outputUnit: { type: string }
+        outputGrade: { type: [string, "null"] }
+        facilityName: { type: [string, "null"] }
+        operatorName: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+    ProcessingRecord:
+      type: object
+      required: [id, sourceBatchId, outputBatchId, processName, processedOn, inputQuantity, inputUnit, outputQuantity, outputUnit, yieldRate]
+      properties:
+        id: { type: string, format: uuid }
+        sourceBatchId: { type: string, format: uuid }
+        outputBatchId: { type: string, format: uuid }
+        processName: { type: string }
+        processedOn: { type: string, format: date }
+        inputQuantity: { type: number }
+        inputUnit: { type: string }
+        outputQuantity: { type: number }
+        outputUnit: { type: string }
+        yieldRate: { type: number }
+        facilityName: { type: [string, "null"] }
+    ProcessingBatchResult:
+      allOf:
+        - $ref: "#/components/schemas/ProcessingRecord"
+        - type: object
+          properties:
+            outputBatchCode: { type: string }
     HarvestQualityMeasurement:
       type: object
       required: [id, harvestBatchId, metricCode, measuredAt]
