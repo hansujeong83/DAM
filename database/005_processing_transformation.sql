@@ -69,12 +69,16 @@ declare
   v_output_code text;
   v_record_id uuid;
   v_yield numeric;
+  v_previously_used numeric := 0;
 begin
   if auth.uid() is null then
     raise exception 'Authentication required';
   end if;
   if p_input_quantity <= 0 or p_output_quantity <= 0 then
     raise exception 'Input and output quantities must be greater than zero';
+  end if;
+  if p_input_unit <> p_output_unit then
+    raise exception 'Use the same unit for input and output to calculate a valid yield rate';
   end if;
   if nullif(trim(p_process_name), '') is null or nullif(trim(p_output_crop_name), '') is null then
     raise exception 'Process name and output product name are required';
@@ -93,8 +97,11 @@ begin
   where hb.id = p_source_batch_id and hb.tenant_id = v_tenant_id
   for update;
   if not found then raise exception 'Source harvest lot not found'; end if;
-  if p_input_quantity > v_source.quantity then
-    raise exception 'Input quantity exceeds available source lot quantity';
+  select coalesce(sum(pr.input_quantity), 0) into v_previously_used
+  from public.processing_records pr
+  where pr.tenant_id = v_tenant_id and pr.source_batch_id = v_source.id;
+  if p_input_quantity + v_previously_used > v_source.quantity then
+    raise exception 'Input quantity exceeds the remaining source lot quantity';
   end if;
   if p_input_unit <> v_source.quantity_unit then
     raise exception 'Input unit must match source lot unit';
