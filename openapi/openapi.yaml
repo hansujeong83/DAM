@@ -144,6 +144,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HarvestBatchList"
+    post:
+      operationId: createHarvestBatch
+      summary: Register a harvest and issue a database-generated lot code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HarvestBatchCreate"
+      responses:
+        "201":
+          description: Created harvest lot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HarvestBatch"
+  /v1/harvest-batches/{batchId}/quality-measurements:
+    get:
+      operationId: listHarvestQualityMeasurements
+      summary: List quality measurements for a harvest lot
+      parameters:
+        - in: path
+          name: batchId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Quality measurements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HarvestQualityMeasurementList"
+    post:
+      operationId: createHarvestQualityMeasurement
+      summary: Add a numeric or text quality measurement
+      parameters:
+        - in: path
+          name: batchId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HarvestQualityMeasurementCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HarvestQualityMeasurement"
   /v1/harvest-batches/{batchId}/lineage:
     get:
       operationId: getHarvestBatchLineage
@@ -260,6 +313,48 @@ components:
         plotId: { type: [string, "null"], format: uuid }
         cultivationCycleId: { type: [string, "null"], format: uuid }
         cropId: { type: [string, "null"], format: uuid }
+    HarvestBatchCreate:
+      type: object
+      required: [farmId, cropName, harvestedOn, quantity, quantityUnit]
+      properties:
+        farmId: { type: string, format: uuid }
+        plotId: { type: [string, "null"], format: uuid }
+        cultivationCycleId: { type: [string, "null"], format: uuid }
+        cropId: { type: [string, "null"], format: uuid }
+        cropName: { type: string, minLength: 1 }
+        cultivar: { type: [string, "null"] }
+        harvestedOn: { type: string, format: date }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        quantityUnit: { type: string, minLength: 1 }
+        grade: { type: [string, "null"] }
+        brix: { type: [number, "null"], minimum: 0, maximum: 100 }
+        notes: { type: [string, "null"] }
+    HarvestQualityMeasurement:
+      type: object
+      required: [id, harvestBatchId, metricCode, measuredAt]
+      properties:
+        id: { type: string, format: uuid }
+        harvestBatchId: { type: string, format: uuid }
+        metricCode: { type: string }
+        valueNumeric: { type: [number, "null"] }
+        valueText: { type: [string, "null"] }
+        unit: { type: [string, "null"] }
+        method: { type: [string, "null"] }
+        measuredAt: { type: string, format: date-time }
+    HarvestQualityMeasurementCreate:
+      type: object
+      required: [metricCode]
+      properties:
+        metricCode: { type: string, minLength: 1 }
+        valueNumeric: { type: [number, "null"] }
+        valueText: { type: [string, "null"] }
+        unit: { type: [string, "null"] }
+        method: { type: [string, "null"] }
+    HarvestQualityMeasurementList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/HarvestQualityMeasurement" } }
     HarvestBatchList:
       type: object
       required: [items]
